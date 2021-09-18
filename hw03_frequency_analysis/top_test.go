@@ -7,7 +7,7 @@ import (
 )
 
 // Change to true if needed.
-var taskWithAsteriskIsCompleted = false
+var taskWithAsteriskIsCompleted = true
 
 var text = `Как видите, он  спускается  по  лестнице  вслед  за  своим
 	другом   Кристофером   Робином,   головой   вниз,  пересчитывая
@@ -79,4 +79,76 @@ func TestTop10(t *testing.T) {
 			require.Equal(t, expected, Top10(text))
 		}
 	})
+}
+
+func TestTop10SpecialCases(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{input: " ", expected: []string{}},
+		{input: "-", expected: []string{}},
+		{input: " - ", expected: []string{}},
+		{input: "- ", expected: []string{}},
+		{input: " -", expected: []string{}},
+		{input: " --- ", expected: []string{}},
+		{input: "--- ", expected: []string{}},
+		{input: " ---", expected: []string{}},
+		{input: ".-.", expected: []string{}},
+		{input: "-.-.-", expected: []string{}},
+		{input: "!.--.!", expected: []string{}},
+		{input: "!.{-](-}.!", expected: []string{}},
+		{input: "-ааа", expected: []string{"-ааа"}},
+		{input: "ааа-", expected: []string{"ааа-"}},
+		{input: "aa--bb--bb", expected: []string{"bb", "aa"}},
+		{input: "aa---bb----bb", expected: []string{"bb", "aa"}},
+		{input: "!-а", expected: []string{"-а"}},
+		{input: "а-#", expected: []string{"а-"}},
+		{input: "-2", expected: []string{"-2"}},
+		{input: "2-", expected: []string{"2-"}},
+		{input: "вы-вы вы - вы", expected: []string{"вы", "вы-вы"}},
+		{input: "a!b>c,(d)={e}<[f]", expected: []string{"a", "b", "c", "d", "e", "f"}},
+		{input: "a b c d f k l m n", expected: []string{"a", "b", "c", "d", "f", "k", "l", "m", "n"}},
+		{input: "a b c d f k l m n o", expected: []string{"a", "b", "c", "d", "f", "k", "l", "m", "n", "o"}},
+		{input: "a b c d f k l m n o p", expected: []string{"a", "b", "c", "d", "f", "k", "l", "m", "n", "o"}},
+		{input: "n m l k f d c b a", expected: []string{"a", "b", "c", "d", "f", "k", "l", "m", "n"}},
+		{input: "o n m l k f d c b a", expected: []string{"a", "b", "c", "d", "f", "k", "l", "m", "n", "o"}},
+		{input: "p o n m l k f d c b a", expected: []string{"a", "b", "c", "d", "f", "k", "l", "m", "n", "o"}},
+		{input: "aa bb bb cc cc cc", expected: []string{"cc", "bb", "aa"}},
+		{input: "cc cc cc bb bb aa", expected: []string{"cc", "bb", "aa"}},
+		{input: "!cc! $cc$ [cc],.%^bb(bb,bb)-{aa}", expected: []string{"bb", "cc", "aa"}},
+		{input: "aaab aaa", expected: []string{"aaa", "aaab"}},
+		{input: "wOrD WoRd aaa", expected: []string{"word", "aaa"}},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.input, func(t *testing.T) {
+			result := Top10(tc.input)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestTop10CyrillicSorting(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		{input: "й а ё ё ё я й", expected: []string{"ё", "й", "а", "я"}},
+		{input: "а ё ё ё я", expected: []string{"ё", "а", "я"}},
+		{input: "а ё я а ё я а ё я ", expected: []string{"а", "ё", "я"}},
+		{input: "а ё я а ё а ", expected: []string{"а", "ё", "я"}},
+		{input: "ёшкин-кот ешкин-кот", expected: []string{"ешкин-кот", "ёшкин-кот"}},
+		{input: "ёшкин-кот ешкин-кот ёшкин-кот", expected: []string{"ёшкин-кот", "ешкин-кот"}},
+		{input: "ёшкин-кот ешкин-кот ешкин-кот", expected: []string{"ешкин-кот", "ёшкин-кот"}},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.input, func(t *testing.T) {
+			result := Top10(tc.input)
+			require.Equal(t, tc.expected, result)
+		})
+	}
 }
