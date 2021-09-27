@@ -49,3 +49,125 @@ func TestList(t *testing.T) {
 		require.Equal(t, []int{70, 80, 60, 40, 10, 30, 50}, elems)
 	})
 }
+
+func TestListRemoveAllFromEnd(t *testing.T) {
+	l := NewList()
+	expected := []int{1, 2, 3, 4, 5}
+
+	for i := len(expected) - 1; i >= 0; i-- {
+		l.PushFront(expected[i])
+	}
+	require.Equal(t, len(expected), l.Len())
+
+	for i := 1; i < len(expected); i++ {
+		l.Remove(l.Back())
+		elems := make([]int, 0, l.Len())
+		for i := l.Front(); i != nil; i = i.Next {
+			elems = append(elems, i.Value.(int))
+		}
+		require.Equal(t, expected[:len(expected)-i], elems)
+	}
+}
+
+func TestListRemoveAllFromStart(t *testing.T) {
+	l := NewList()
+	expected := []int{1, 2, 3, 4, 5}
+
+	for i := len(expected) - 1; i >= 0; i-- {
+		l.PushFront(expected[i])
+	}
+	require.Equal(t, len(expected), l.Len())
+
+	for i := 1; i < len(expected); i++ {
+		l.Remove(l.Front())
+		elems := make([]int, 0, l.Len())
+		for i := l.Front(); i != nil; i = i.Next {
+			elems = append(elems, i.Value.(int))
+		}
+		require.Equal(t, expected[i:], elems)
+	}
+}
+
+func TestListAddOneToFront(t *testing.T) {
+	l := NewList()
+
+	e := l.PushFront(10)
+	require.Equal(t, 1, l.Len())
+	require.Equal(t, 10, e.Value)
+	require.Equal(t, e, l.Front())
+	require.Equal(t, e, l.Back())
+}
+
+func TestListAddOneToBack(t *testing.T) {
+	l := NewList()
+
+	e := l.PushBack(10)
+	require.Equal(t, 1, l.Len())
+	require.Equal(t, 10, e.Value)
+	require.Equal(t, e, l.Front())
+	require.Equal(t, e, l.Back())
+}
+
+func TestListMoveOneToFront(t *testing.T) {
+	l := NewList()
+
+	e := l.PushFront(10)
+	require.Equal(t, 1, l.Len())
+	require.Equal(t, 10, e.Value)
+	require.Equal(t, e, l.Front())
+	require.Equal(t, e, l.Back())
+
+	l.MoveToFront(e)
+	require.Equal(t, 1, l.Len())
+	require.Equal(t, 10, e.Value)
+	require.Equal(t, e, l.Front())
+	require.Equal(t, e, l.Back())
+}
+
+func TestListRemoveOne(t *testing.T) {
+	l := NewList()
+
+	e := l.PushFront(10)
+	require.Equal(t, 1, l.Len())
+	require.Equal(t, 10, e.Value)
+
+	l.Remove(e)
+
+	require.Equal(t, 0, l.Len())
+	require.Equal(t, 10, e.Value)
+	require.Nil(t, l.Front())
+	require.Nil(t, l.Back())
+}
+
+func TestListRemoveFromMiddle(t *testing.T) {
+	l := NewList()
+
+	last := l.PushFront(10)
+	middle := l.PushFront(20)
+	first := l.PushFront(30)
+	require.Equal(t, 3, l.Len())
+	require.Equal(t, 30, first.Value)
+	require.Equal(t, 20, middle.Value)
+	require.Equal(t, 10, last.Value)
+
+	l.Remove(middle)
+
+	require.Equal(t, 2, l.Len())
+	require.Equal(t, 30, first.Value)
+	require.Equal(t, 20, middle.Value)
+	require.Equal(t, 10, last.Value)
+	require.Equal(t, first, l.Front())
+	require.Equal(t, last, l.Back())
+
+	elems := make([]int, 0, l.Len())
+	for i := l.Front(); i != nil; i = i.Next {
+		elems = append(elems, i.Value.(int))
+	}
+	require.Equal(t, []int{30, 10}, elems)
+
+	elems = make([]int, 0, l.Len())
+	for i := l.Back(); i != nil; i = i.Prev {
+		elems = append(elems, i.Value.(int))
+	}
+	require.Equal(t, []int{10, 30}, elems)
+}

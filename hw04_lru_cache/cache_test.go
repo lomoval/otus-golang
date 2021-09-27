@@ -48,15 +48,145 @@ func TestCache(t *testing.T) {
 		require.False(t, ok)
 		require.Nil(t, val)
 	})
+}
 
-	t.Run("purge logic", func(t *testing.T) {
-		// Write me
+func TestCacheRemoving(t *testing.T) {
+	t.Run("RemoveObsolete", func(t *testing.T) {
+		c := NewCache(3)
+		c.Set("1", 100)
+		c.Set("2", 200)
+		c.Set("3", 300)
+		c.Set("4", 400)
+
+		val, ok := c.Get("1")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		val, ok = c.Get("2")
+		require.True(t, ok)
+		require.Equal(t, 200, val)
+		val, ok = c.Get("3")
+		require.True(t, ok)
+		require.Equal(t, 300, val)
+		val, ok = c.Get("4")
+		require.True(t, ok)
+		require.Equal(t, 400, val)
+	})
+
+	t.Run("RemoveObsoleteAfterSetting", func(t *testing.T) {
+		c := NewCache(3)
+		c.Set("1", 100)
+		c.Set("2", 200)
+		c.Set("3", 300)
+
+		c.Set("1", 100)
+		c.Set("3", 300)
+
+		c.Set("4", 400)
+
+		val, ok := c.Get("2")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		val, ok = c.Get("1")
+		require.True(t, ok)
+		require.Equal(t, 100, val)
+		val, ok = c.Get("3")
+		require.True(t, ok)
+		require.Equal(t, 300, val)
+		val, ok = c.Get("4")
+		require.True(t, ok)
+		require.Equal(t, 400, val)
+	})
+
+	t.Run("RemoveObsoleteAfterGetting", func(t *testing.T) {
+		c := NewCache(3)
+		c.Set("1", 100)
+		c.Set("2", 200)
+		c.Set("3", 300)
+
+		c.Get("1")
+		c.Get("3")
+
+		c.Set("4", 400)
+
+		val, ok := c.Get("2")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		val, ok = c.Get("1")
+		require.True(t, ok)
+		require.Equal(t, 100, val)
+		val, ok = c.Get("3")
+		require.True(t, ok)
+		require.Equal(t, 300, val)
+		val, ok = c.Get("4")
+		require.True(t, ok)
+		require.Equal(t, 400, val)
+	})
+
+	t.Run("RemoveSeveralObsolete", func(t *testing.T) {
+		c := NewCache(3)
+		c.Set("1", 100)
+		c.Set("2", 200)
+		c.Set("3", 300)
+
+		c.Set("1", "100")
+		c.Get("3")
+
+		c.Set("4", 400)
+		c.Set("5", 500)
+
+		val, ok := c.Get("2")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		val, ok = c.Get("1")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		val, ok = c.Get("3")
+		require.True(t, ok)
+		require.Equal(t, 300, val)
+		val, ok = c.Get("4")
+		require.True(t, ok)
+		require.Equal(t, 400, val)
+		val, ok = c.Get("5")
+		require.True(t, ok)
+		require.Equal(t, 500, val)
 	})
 }
 
-func TestCacheMultithreading(t *testing.T) {
-	t.Skip() // Remove me if task with asterisk completed.
+func TestCacheClean(t *testing.T) {
+	c := NewCache(3)
+	c.Set("1", 100)
+	c.Set("2", 200)
+	c.Set("3", 300)
 
+	val, ok := c.Get("1")
+	require.True(t, ok)
+	require.Equal(t, 100, val)
+	val, ok = c.Get("2")
+	require.True(t, ok)
+	require.Equal(t, 200, val)
+	val, ok = c.Get("3")
+	require.True(t, ok)
+	require.Equal(t, 300, val)
+
+	c.Clear()
+
+	val, ok = c.Get("1")
+	require.False(t, ok)
+	require.Nil(t, val)
+	val, ok = c.Get("2")
+	require.False(t, ok)
+	require.Nil(t, val)
+	val, ok = c.Get("3")
+	require.False(t, ok)
+	require.Nil(t, val)
+}
+
+func TestCacheMultithreading(t *testing.T) {
 	c := NewCache(10)
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
