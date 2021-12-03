@@ -1,12 +1,12 @@
 package hw10programoptimization
 
 import (
-	"encoding/json"
-	"fmt"
+	"bufio"
+	"errors"
 	"io"
-	"io/ioutil"
-	"regexp"
 	"strings"
+
+	"github.com/valyala/fastjson"
 )
 
 type User struct {
@@ -22,46 +22,48 @@ type User struct {
 type DomainStat map[string]int
 
 func GetDomainStat(r io.Reader, domain string) (DomainStat, error) {
-	u, err := getUsers(r)
+	domain = "." + domain
+	stat := make(DomainStat)
+	err := parsUsers(
+		r,
+		func(u User) error {
+			if strings.HasSuffix(u.Email, domain) {
+				parts := strings.SplitN(u.Email, "@", 2)
+				if len(parts) != 2 {
+					return errors.New("incorrect email: " + u.Email)
+				}
+				key := strings.ToLower(parts[1])
+				stat[key]++
+			}
+			return nil
+		})
 	if err != nil {
-		return nil, fmt.Errorf("get users error: %w", err)
+		return nil, err
 	}
-	return countDomains(u, domain)
+	return stat, nil
 }
 
-type users [100_000]User
-
-func getUsers(r io.Reader) (result users, err error) {
-	content, err := ioutil.ReadAll(r)
-	if err != nil {
-		return
-	}
-
-	lines := strings.Split(string(content), "\n")
-	for i, line := range lines {
-		var user User
-		if err = json.Unmarshal([]byte(line), &user); err != nil {
-			return
-		}
-		result[i] = user
-	}
-	return
-}
-
-func countDomains(u users, domain string) (DomainStat, error) {
-	result := make(DomainStat)
-
-	for _, user := range u {
-		matched, err := regexp.Match("\\."+domain, []byte(user.Email))
-		if err != nil {
-			return nil, err
+func parsUsers(r io.Reader, handler func(user User) error) error {
+	scanner := bufio.NewScanner(r)
+	var value *fastjson.Value
+	var p fastjson.Parser
+	for scanner.Scan() {
+		var err error
+		if value, err = p.Parse(scanner.Text()); err != nil {
+			return err
 		}
 
-		if matched {
-			num := result[strings.ToLower(strings.SplitN(user.Email, "@", 2)[1])]
-			num++
-			result[strings.ToLower(strings.SplitN(user.Email, "@", 2)[1])] = num
+		if err := handler(User{
+			ID:       value.GetInt("Id"),
+			Name:     string(value.GetStringBytes("Name")),
+			Username: string(value.GetStringBytes("Username")),
+			Email:    string(value.GetStringBytes("Email")),
+			Phone:    string(value.GetStringBytes("Phone")),
+			Password: string(value.GetStringBytes("Password")),
+			Address:  string(value.GetStringBytes("Address")),
+		}); err != nil {
+			return err
 		}
 	}
-	return result, nil
+	return nil
 }
