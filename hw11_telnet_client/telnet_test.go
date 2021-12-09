@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -61,5 +63,39 @@ func TestTelnetClient(t *testing.T) {
 		}()
 
 		wg.Wait()
+	})
+
+	t.Run("incorrect host", func(t *testing.T) {
+		c := NewTelnetClient("nonexisthost.ru", 10*time.Second, os.Stdin, os.Stdout)
+		require.Error(t, c.Connect())
+	})
+
+	t.Run("non connected port", func(t *testing.T) {
+		c := NewTelnetClient("ya.ru:999", 1*time.Second, os.Stdin, os.Stdout)
+		require.Error(t, c.Connect())
+	})
+
+	t.Run("timeout check", func(t *testing.T) {
+		c := NewTelnetClient("ya.ru:999", 500*time.Millisecond, os.Stdin, os.Stdout)
+		err := c.Connect()
+		require.Eventually(t, func() bool { return err != nil }, 550*time.Millisecond, 100)
+	})
+
+	t.Run("get bad request", func(t *testing.T) {
+		expected := "HTTP/1.1 400 Bad Request\r\n"
+
+		in := &bytes.Buffer{}
+		out := &bytes.Buffer{}
+
+		c := NewTelnetClient(net.JoinHostPort("httpbin.org", "80"), 500*time.Millisecond, io.NopCloser(in), out)
+		require.NoError(t, c.Connect())
+
+		in.WriteString("get me bad request")
+		require.Nil(t, c.Send())
+
+		c.Receive()
+		n, err := out.ReadString('\n')
+		require.NoError(t, err)
+		require.Equal(t, expected, n)
 	})
 }
