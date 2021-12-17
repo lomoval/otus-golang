@@ -1,20 +1,20 @@
 package logger
 
-import "fmt"
+import (
+	"fmt"
 
-type Logger struct { // TODO
+	log "github.com/sirupsen/logrus"
+)
+
+type Config struct {
+	Level string
 }
 
-func New(level string) *Logger {
-	return &Logger{}
+func PrepareLogger(config Config) error {
+	level, err := log.ParseLevel(config.Level)
+	if err != nil {
+		return fmt.Errorf("fialed to parse logger levev: %w", err)
+	}
+	log.SetLevel(level)
+	return nil
 }
-
-func (l Logger) Info(msg string) {
-	fmt.Println(msg)
-}
-
-func (l Logger) Error(msg string) {
-	// TODO
-}
-
-// TODO
