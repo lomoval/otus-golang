@@ -7,13 +7,10 @@ import (
 type App struct { // TODO
 }
 
-type Logger interface { // TODO
-}
-
 type Storage interface { // TODO
 }
 
-func New(logger Logger, storage Storage) *App {
+func New(storage Storage) *App {
 	return &App{}
 }
 

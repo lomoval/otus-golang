@@ -1,0 +1,15 @@
+host: 127.0.0.1
+port: 8005
+
+logger:
+  level: "DEBUG"
+
+storageType: memory
+#storageType: sql
+
+database:
+  host: 127.0.0.1
+  port: 5532
+  database: postgres
+  user: postgres
+  password: pas

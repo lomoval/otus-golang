@@ -1,15 +1,42 @@
-package memorystorage_test
+// +build sql
+
+package sqlstorage_test
 
 import (
 	"context"
 	"fmt"
+	"github.com/jmoiron/sqlx"
+	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage"
+	sqlstorage "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage/sql"
+	"github.com/stretchr/testify/require"
+	"os"
+	"strconv"
 	"testing"
 	"time"
-
-	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage"
-	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage/memory"
-	"github.com/stretchr/testify/require"
 )
+
+var (
+	host     = "127.0.0.1"
+	port     = 5532
+	database = "testing"
+	username = "postgres"
+	password = "pas"
+)
+
+func TestMain(m *testing.M) {
+	pgHost := os.Getenv("POSTGRES_HOST")
+	pgPort := os.Getenv("POSTGRES_PORT")
+	if pgHost != "" {
+		host = pgHost
+	}
+	if pgPort != "" {
+		port, _ = strconv.Atoi(pgPort)
+	}
+
+	cleanupDb()
+	code := m.Run()
+	os.Exit(code)
+}
 
 func TestStorage(t *testing.T) {
 	t.Run("add event", func(t *testing.T) {
@@ -35,7 +62,7 @@ func TestStorage(t *testing.T) {
 	})
 
 	t.Run("update event", func(t *testing.T) {
-		initDate := time.Date(2300, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
+		initDate := time.Date(2300, 01, 01, 0, 0, 0, 0, time.UTC)
 		e := storage.Event{
 			ID:           "",
 			Title:        "test",
@@ -64,7 +91,7 @@ func TestStorage(t *testing.T) {
 	})
 
 	t.Run("delete event", func(t *testing.T) {
-		initDate := time.Date(2300, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
+		initDate := time.Date(2300, 01, 01, 0, 0, 0, 0, time.UTC)
 		e := storage.Event{
 			ID:           "",
 			Title:        "test",
@@ -86,7 +113,7 @@ func TestStorage(t *testing.T) {
 	})
 
 	t.Run("list", func(t *testing.T) {
-		initDate := time.Date(2300, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
+		initDate := time.Date(2300, 01, 01, 0, 0, 0, 0, time.UTC)
 		e := storage.Event{
 			ID:           "",
 			Title:        "test",
@@ -143,7 +170,7 @@ func TestStorageNegativeCases(t *testing.T) {
 	})
 
 	t.Run("update not exist event", func(t *testing.T) {
-		initDate := time.Date(2300, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
+		initDate := time.Date(2300, 01, 01, 0, 0, 0, 0, time.UTC)
 		e := storage.Event{ID: "___not_exists___", StartTime: initDate, EndTime: initDate.Add(time.Hour)}
 		s := createStorage(t)
 
@@ -174,7 +201,7 @@ func TestStorageNegativeCases(t *testing.T) {
 	})
 
 	t.Run("incorrect event time for insert", func(t *testing.T) {
-		initDate := time.Date(2300, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
+		initDate := time.Date(2300, 01, 01, 0, 0, 0, 0, time.UTC)
 		e := storage.Event{StartTime: initDate.Add(time.Hour), EndTime: initDate}
 		s := createStorage(t)
 
@@ -182,7 +209,7 @@ func TestStorageNegativeCases(t *testing.T) {
 	})
 
 	t.Run("incorrect event time for insert", func(t *testing.T) {
-		initDate := time.Date(2300, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
+		initDate := time.Date(2300, 01, 01, 0, 0, 0, 0, time.UTC)
 		e := storage.Event{StartTime: initDate.Add(time.Hour), EndTime: initDate}
 		s := createStorage(t)
 
@@ -192,47 +219,47 @@ func TestStorageNegativeCases(t *testing.T) {
 
 func TestStorageValidateStarDates(t *testing.T) {
 	tests := []struct {
-		testFunc    func(s *memorystorage.Storage) error
+		testFunc    func(s *sqlstorage.Storage) error
 		expectedErr error
 	}{
 		{
-			testFunc: func(s *memorystorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2021, 12, 0o6, 0, 0, 0, 0, time.UTC))
+			testFunc: func(s *sqlstorage.Storage) error {
+				_, err := s.GetEventsForWeek(time.Date(2021, 12, 06, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
-			testFunc: func(s *memorystorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2300, 0o1, 8, 0, 0, 0, 0, time.UTC))
+			testFunc: func(s *sqlstorage.Storage) error {
+				_, err := s.GetEventsForWeek(time.Date(2300, 01, 8, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
-			testFunc: func(s *memorystorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2300, 0o1, 29, 0, 0, 0, 0, time.UTC))
+			testFunc: func(s *sqlstorage.Storage) error {
+				_, err := s.GetEventsForWeek(time.Date(2300, 01, 29, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
-			testFunc: func(s *memorystorage.Storage) error {
+			testFunc: func(s *sqlstorage.Storage) error {
 				_, err := s.GetEventsForMonth(time.Date(2300, 1, 1, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
-			testFunc: func(s *memorystorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2300, 0o1, 0o2, 0, 0, 0, 0, time.UTC))
+			testFunc: func(s *sqlstorage.Storage) error {
+				_, err := s.GetEventsForWeek(time.Date(2300, 01, 02, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: storage.ErrIncorrectStartDate,
 		},
 		{
-			testFunc: func(s *memorystorage.Storage) error {
-				_, err := s.GetEventsForMonth(time.Date(2300, 0o1, 0o2, 0, 0, 0, 0, time.UTC))
+			testFunc: func(s *sqlstorage.Storage) error {
+				_, err := s.GetEventsForMonth(time.Date(2300, 01, 02, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: storage.ErrIncorrectStartDate,
@@ -251,29 +278,40 @@ func TestStorageValidateStarDates(t *testing.T) {
 	}
 }
 
+func cleanupDb() error {
+	db, err := sqlx.Connect(
+		"postgres",
+		fmt.Sprintf("sslmode=disable host=%s port=%d dbname=%s user=%s password=%s", host, port, database, username, password),
+	)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("TRUNCATE TABLE Events")
+	if err != nil {
+		return err
+	}
+	return err
+}
+
 func compareEvents(t *testing.T, expected storage.Event, actual storage.Event) {
 	t.Helper()
-	require.True(
-		t,
-		expected.StartTime.Equal(actual.StartTime),
-		"start time is not equals %q != %q", expected.StartTime, actual.StartTime)
-	require.True(
-		t,
-		expected.StartTime.Equal(actual.StartTime),
-		"start time is not equals %q != %q", expected.StartTime, actual.StartTime)
+	require.True(t, expected.StartTime.Equal(actual.StartTime), "start time is not equals %q != %q", expected.StartTime, actual.StartTime)
+	require.True(t, expected.StartTime.Equal(actual.StartTime), "start time is not equals %q != %q", expected.StartTime, actual.StartTime)
 	expected.StartTime = actual.StartTime
 	expected.EndTime = actual.EndTime
 	require.Equal(t, expected, actual)
 }
 
-func createStorage(t *testing.T) *memorystorage.Storage {
+func createStorage(t *testing.T) *sqlstorage.Storage {
 	t.Helper()
-	s := memorystorage.New()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	s := sqlstorage.New(host, port, database, username, password)
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	require.NoError(t, s.Connect(ctx))
 	t.Cleanup(func() {
 		s.Close(ctx)
+		require.NoError(t, cleanupDb())
 	})
 	return s
 }
