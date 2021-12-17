@@ -8,16 +8,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/app"
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/logger"
-	internalhttp "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/server/http"
-	memorystorage "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/storage/memory"
+	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/app"
+	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/logger"
+	internalhttp "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/server/http"
+	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storagebuilder"
+	log "github.com/sirupsen/logrus"
 )
 
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "/etc/calendar/config.toml", "Path to configuration file")
+	flag.StringVar(&configFile, "config", "./configs/config.yaml", "Path to configuration file")
+	log.SetFormatter(&log.TextFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.WarnLevel)
 }
 
 func main() {
@@ -28,13 +32,24 @@ func main() {
 		return
 	}
 
-	config := NewConfig()
-	logg := logger.New(config.Logger.Level)
+	config, err := NewConfig(configFile)
+	if err != nil {
+		log.Errorf("failed to start %v", err)
+		return
+	}
+	err = logger.PrepareLogger(config.Logger)
+	if err != nil {
+		log.Errorf("failed to start %v", err)
+		return
+	}
+	stor, err := storagebuilder.New(config.Storage)
+	if err != nil {
+		log.Errorf("failed to start %v", err)
+		return
+	}
 
-	storage := memorystorage.New()
-	calendar := app.New(logg, storage)
-
-	server := internalhttp.NewServer(logg, calendar)
+	calendar := app.New(stor)
+	server := internalhttp.NewServer(config.Server, calendar)
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -47,15 +62,27 @@ func main() {
 		defer cancel()
 
 		if err := server.Stop(ctx); err != nil {
-			logg.Error("failed to stop http server: " + err.Error())
+			log.Error("failed to stop http server: " + err.Error())
 		}
 	}()
 
-	logg.Info("calendar is running...")
+	log.Info("calendar is running...")
 
 	if err := server.Start(ctx); err != nil {
-		logg.Error("failed to start http server: " + err.Error())
+		log.Error("failed to start http server: " + err.Error())
 		cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		defer cancel()
+		err := stor.Close(ctx)
+		if err != nil {
+			log.Errorf("failed to close storage: %v", err)
+		}
 		os.Exit(1) //nolint:gocritic
+	}
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	err = stor.Close(ctx)
+	if err != nil {
+		log.Errorf("failed to close storage: %v", err)
 	}
 }
