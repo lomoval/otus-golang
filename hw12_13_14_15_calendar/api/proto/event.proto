@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package event;
+option go_package = "./;api";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+message Event {
+  string id = 1;
+  string title = 2;
+  google.protobuf.Timestamp startTime = 3;
+  google.protobuf.Timestamp endTime = 4;
+  string description = 5;
+  string ownerId = 6;
+  google.protobuf.Duration notifyBefore = 7;
+}

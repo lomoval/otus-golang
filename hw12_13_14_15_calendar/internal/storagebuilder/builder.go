@@ -15,7 +15,7 @@ type Config struct {
 	Database    sqlstorage.Config
 }
 
-func New(config Config) (storage.Storage, error) {
+func NewStorage(config Config) (storage.Storage, error) {
 	switch config.StorageType {
 	case "memory":
 		return memorystorage.New(), nil
@@ -29,6 +29,6 @@ func New(config Config) (storage.Storage, error) {
 		}
 		return s, nil
 	default:
-		return nil, fmt.Errorf("unknown storage type %s", config.StorageType)
+		return nil, fmt.Errorf("unknown storage type %q", config.StorageType)
 	}
 }

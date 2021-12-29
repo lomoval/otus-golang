@@ -17,6 +17,10 @@ issues:
         - dupl
         - gocyclo
         - gosec
+    # Exclude lll issues for long lines with go:generate
+    - linters:
+        - lll
+      source: "^//go:generate "
 
 linters:
   disable-all: true

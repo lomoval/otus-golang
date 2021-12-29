@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+import "event.proto";
+
+option go_package = "./;api";
+
+service Events {
+ rpc AddEvent(AddEventRequest) returns (AddEventResponse){  }
+ rpc UpdateEvent(UpdateEventRequest) returns (google.protobuf.Empty) {};
+ rpc RemoveEvent(RemoveEventRequest) returns (google.protobuf.Empty) {};
+ rpc GetEventsForDay(GetEventsRequest) returns (GetEventsResponse) {};
+ rpc GetEventsForWeek(GetEventsRequest) returns (GetEventsResponse) {};
+ rpc GetEventsForMonth(GetEventsRequest) returns (GetEventsResponse) {};
+}
+
+message AddEventRequest {
+ event.Event event = 1;
+}
+
+message AddEventResponse {
+ event.Event event = 1;
+}
+
+message UpdateEventRequest {
+ string id = 1;
+ event.Event event = 2;
+}
+
+message RemoveEventRequest {
+ string id = 1;
+}
+
+message GetEventsRequest {
+ google.protobuf.Timestamp startDate = 1;
+}
+
+message GetEventsResponse {
+ repeated event.Event events = 1;
+}

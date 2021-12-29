@@ -1,6 +1,9 @@
-server:
+httpServer:
   host: 127.0.0.1
   port: 8005
+grpcServer:
+  host: 127.0.0.1
+  port: 8006
 
 logger:
   level: "DEBUG"

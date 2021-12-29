@@ -30,7 +30,7 @@ func (s *Storage) Close(_ context.Context) error {
 	return nil
 }
 
-func (s *Storage) AddEvent(e *storage.Event) error {
+func (s *Storage) AddEvent(_ context.Context, e *storage.Event) error {
 	if !e.EndTime.After(e.StartTime) {
 		return fmt.Errorf("start time of the event must be in the future: %w", storage.ErrIncorrectEventTime)
 	}
@@ -51,7 +51,7 @@ func (s *Storage) AddEvent(e *storage.Event) error {
 	return nil
 }
 
-func (s *Storage) UpdateEvent(id string, e storage.Event) error {
+func (s *Storage) UpdateEvent(_ context.Context, id string, e storage.Event) error {
 	if e.StartTime.Before(time.Now()) {
 		return fmt.Errorf("start time of the event must be in the future: %w", storage.ErrIncorrectEventTime)
 	}
@@ -65,11 +65,12 @@ func (s *Storage) UpdateEvent(id string, e storage.Event) error {
 	if !ok {
 		return fmt.Errorf("failed to update event with id %q: %w", id, storage.ErrNotFoundEvent)
 	}
+	e.ID = id
 	s.data[e.ID] = e
 	return nil
 }
 
-func (s *Storage) RemoveEvent(id string) error {
+func (s *Storage) RemoveEvent(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.data[id]; !ok {
@@ -79,13 +80,13 @@ func (s *Storage) RemoveEvent(id string) error {
 	return nil
 }
 
-func (s *Storage) GetEventsForDay(date time.Time) ([]storage.Event, error) {
+func (s *Storage) GetEventsForDay(_ context.Context, date time.Time) ([]storage.Event, error) {
 	startTime := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	endTime := startTime.Add(24 * time.Hour)
 	return s.selectByRange(startTime, endTime)
 }
 
-func (s *Storage) GetEventsForWeek(startDate time.Time) ([]storage.Event, error) {
+func (s *Storage) GetEventsForWeek(_ context.Context, startDate time.Time) ([]storage.Event, error) {
 	startTime := util.TruncateToDay(startDate)
 	if startTime.Weekday() != s.firstWeekDay {
 		return nil, storage.ErrIncorrectStartDate
@@ -94,7 +95,7 @@ func (s *Storage) GetEventsForWeek(startDate time.Time) ([]storage.Event, error)
 	return s.selectByRange(startTime, endTime)
 }
 
-func (s *Storage) GetEventsForMonth(startDate time.Time) ([]storage.Event, error) {
+func (s *Storage) GetEventsForMonth(_ context.Context, startDate time.Time) ([]storage.Event, error) {
 	startTime := util.TruncateToDay(startDate)
 	if startTime.Day() != 1 {
 		return nil, storage.ErrIncorrectStartDate
