@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/logger"
+	internalgrpc "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/server/grpc"
 	internalhttp "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/server/http"
 	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storagebuilder"
 	"github.com/spf13/viper"
@@ -13,17 +14,20 @@ import (
 const envConfigPrefix = "$env:"
 
 type Config struct {
-	Server  internalhttp.Config
-	Logger  logger.Config
-	Storage storagebuilder.Config
+	HTTPServer internalhttp.Config
+	GrpcServer internalgrpc.Config
+	Logger     logger.Config
+	Storage    storagebuilder.Config
 }
 
 func NewConfig(configFile string) (Config, error) {
 	config := Config{}
 	viper.SetConfigFile(configFile)
 
-	viper.SetDefault("server.host", "127.0.0.1")
-	viper.SetDefault("server.port", "8005")
+	viper.SetDefault("httpServer.host", "127.0.0.1")
+	viper.SetDefault("httpServer.port", "8005")
+	viper.SetDefault("grpcServer.host", "127.0.0.1")
+	viper.SetDefault("grpcServer.port", "8006")
 	viper.SetDefault("logger.level", "WARN")
 	viper.SetDefault("storage.storageType", "memory")
 

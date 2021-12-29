@@ -18,6 +18,6 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		log.WithField("ip", ip).WithField("method", r.Method).WithField("path", r.URL).
 			WithField("HTTP version", r.Proto).WithField("user-agent", r.Header.Get("user-agent")).
 			WithField("latency", time.Since(start)).
-			Info("processed request")
+			Info("http request processed")
 	})
 }

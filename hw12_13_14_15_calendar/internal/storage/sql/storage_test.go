@@ -9,6 +9,7 @@ import (
 	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage"
 	sqlstorage "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage/sql"
 	"github.com/stretchr/testify/require"
+	"log"
 	"os"
 	"strconv"
 	"testing"
@@ -24,13 +25,18 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	pgHost := os.Getenv("POSTGRES_HOST")
-	pgPort := os.Getenv("POSTGRES_PORT")
+	pgHost := os.Getenv("TEST_POSTGRES_HOST")
+	pgPort := os.Getenv("TEST_POSTGRES_PORT")
 	if pgHost != "" {
 		host = pgHost
 	}
 	if pgPort != "" {
-		port, _ = strconv.Atoi(pgPort)
+		var err error
+		port, err = strconv.Atoi(pgPort)
+		if err != nil {
+			log.Printf("failed to parse port '%s': %v", pgPort, err)
+			os.Exit(-1)
+		}
 	}
 
 	cleanupDb()
@@ -52,10 +58,10 @@ func TestStorage(t *testing.T) {
 		}
 		s := createStorage(t)
 
-		require.NoError(t, s.AddEvent(&e))
+		require.NoError(t, s.AddEvent(context.Background(), &e))
 		require.NotEmpty(t, e.ID)
 
-		events, err := s.GetEventsForDay(initDate)
+		events, err := s.GetEventsForDay(context.Background(), initDate)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(events))
 		compareEvents(t, e, events[0])
@@ -74,7 +80,7 @@ func TestStorage(t *testing.T) {
 		}
 
 		s := createStorage(t)
-		require.NoError(t, s.AddEvent(&e))
+		require.NoError(t, s.AddEvent(context.Background(), &e))
 
 		e.Title = "updated title"
 		e.StartTime = e.EndTime.Add(21 * time.Minute)
@@ -82,9 +88,9 @@ func TestStorage(t *testing.T) {
 		e.Description = "updated description"
 		e.NotifyBefore = 100
 
-		require.NoError(t, s.UpdateEvent(e.ID, e))
+		require.NoError(t, s.UpdateEvent(context.Background(), e.ID, e))
 
-		events, err := s.GetEventsForWeek(initDate)
+		events, err := s.GetEventsForWeek(context.Background(), initDate)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(events))
 		compareEvents(t, e, events[0])
@@ -103,11 +109,11 @@ func TestStorage(t *testing.T) {
 		}
 
 		s := createStorage(t)
-		require.NoError(t, s.AddEvent(&e))
+		require.NoError(t, s.AddEvent(context.Background(), &e))
 
-		require.NoError(t, s.RemoveEvent(e.ID))
+		require.NoError(t, s.RemoveEvent(context.Background(), e.ID))
 
-		events, err := s.GetEventsForWeek(initDate)
+		events, err := s.GetEventsForWeek(context.Background(), initDate)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(events))
 	})
@@ -127,25 +133,25 @@ func TestStorage(t *testing.T) {
 		s := createStorage(t)
 
 		for i := 0; i < 60; i++ {
-			require.NoError(t, s.AddEvent(&e))
+			require.NoError(t, s.AddEvent(context.Background(), &e))
 			e.ID = ""
 			e.StartTime = e.StartTime.AddDate(0, 0, 1)
 			e.EndTime = e.EndTime.AddDate(0, 0, 1)
 		}
 
-		list, err := s.GetEventsForDay(initDate)
+		list, err := s.GetEventsForDay(context.Background(), initDate)
 		require.NoError(t, err)
 		require.Equal(t, len(list), 1)
 
-		list, err = s.GetEventsForWeek(initDate)
+		list, err = s.GetEventsForWeek(context.Background(), initDate)
 		require.NoError(t, err)
 		require.Equal(t, len(list), 7)
 
-		list, err = s.GetEventsForMonth(initDate)
+		list, err = s.GetEventsForMonth(context.Background(), initDate)
 		require.NoError(t, err)
 		require.Equal(t, len(list), 31)
 
-		list, err = s.GetEventsForMonth(initDate.AddDate(0, 1, 0))
+		list, err = s.GetEventsForMonth(context.Background(), initDate.AddDate(0, 1, 0))
 		require.NoError(t, err)
 		require.Equal(t, len(list), 28)
 	})
@@ -165,8 +171,8 @@ func TestStorageNegativeCases(t *testing.T) {
 		}
 		s := createStorage(t)
 
-		require.NoError(t, s.AddEvent(&e))
-		require.ErrorIs(t, s.AddEvent(&e), storage.ErrDuplicateEventID)
+		require.NoError(t, s.AddEvent(context.Background(), &e))
+		require.ErrorIs(t, s.AddEvent(context.Background(), &e), storage.ErrDuplicateEventID)
 	})
 
 	t.Run("update not exist event", func(t *testing.T) {
@@ -174,14 +180,14 @@ func TestStorageNegativeCases(t *testing.T) {
 		e := storage.Event{ID: "___not_exists___", StartTime: initDate, EndTime: initDate.Add(time.Hour)}
 		s := createStorage(t)
 
-		require.ErrorIs(t, s.UpdateEvent(e.ID, e), storage.ErrNotFoundEvent)
+		require.ErrorIs(t, s.UpdateEvent(context.Background(), e.ID, e), storage.ErrNotFoundEvent)
 	})
 
 	t.Run("delete not exist event event", func(t *testing.T) {
 		e := storage.Event{ID: "___not_exists___"}
 		s := createStorage(t)
 
-		require.ErrorIs(t, s.RemoveEvent(e.ID), storage.ErrNotFoundEvent)
+		require.ErrorIs(t, s.RemoveEvent(context.Background(), e.ID), storage.ErrNotFoundEvent)
 	})
 
 	t.Run("old event time for insert", func(t *testing.T) {
@@ -189,7 +195,7 @@ func TestStorageNegativeCases(t *testing.T) {
 		e := storage.Event{StartTime: initDate.Add(time.Hour), EndTime: initDate}
 		s := createStorage(t)
 
-		require.ErrorIs(t, s.AddEvent(&e), storage.ErrIncorrectEventTime)
+		require.ErrorIs(t, s.AddEvent(context.Background(), &e), storage.ErrIncorrectEventTime)
 	})
 
 	t.Run("old event time for update", func(t *testing.T) {
@@ -197,7 +203,7 @@ func TestStorageNegativeCases(t *testing.T) {
 		e := storage.Event{StartTime: initDate.Add(time.Hour), EndTime: initDate}
 		s := createStorage(t)
 
-		require.ErrorIs(t, s.UpdateEvent(e.ID, e), storage.ErrIncorrectEventTime)
+		require.ErrorIs(t, s.UpdateEvent(context.Background(), e.ID, e), storage.ErrIncorrectEventTime)
 	})
 
 	t.Run("incorrect event time for insert", func(t *testing.T) {
@@ -205,7 +211,7 @@ func TestStorageNegativeCases(t *testing.T) {
 		e := storage.Event{StartTime: initDate.Add(time.Hour), EndTime: initDate}
 		s := createStorage(t)
 
-		require.ErrorIs(t, s.AddEvent(&e), storage.ErrIncorrectEventTime)
+		require.ErrorIs(t, s.AddEvent(context.Background(), &e), storage.ErrIncorrectEventTime)
 	})
 
 	t.Run("incorrect event time for insert", func(t *testing.T) {
@@ -213,7 +219,7 @@ func TestStorageNegativeCases(t *testing.T) {
 		e := storage.Event{StartTime: initDate.Add(time.Hour), EndTime: initDate}
 		s := createStorage(t)
 
-		require.ErrorIs(t, s.UpdateEvent(e.ID, e), storage.ErrIncorrectEventTime)
+		require.ErrorIs(t, s.UpdateEvent(context.Background(), e.ID, e), storage.ErrIncorrectEventTime)
 	})
 }
 
@@ -224,42 +230,42 @@ func TestStorageValidateStarDates(t *testing.T) {
 	}{
 		{
 			testFunc: func(s *sqlstorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2021, 12, 06, 0, 0, 0, 0, time.UTC))
+				_, err := s.GetEventsForWeek(context.Background(), time.Date(2021, 12, 06, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
 			testFunc: func(s *sqlstorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2300, 01, 8, 0, 0, 0, 0, time.UTC))
+				_, err := s.GetEventsForWeek(context.Background(), time.Date(2300, 01, 8, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
 			testFunc: func(s *sqlstorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2300, 01, 29, 0, 0, 0, 0, time.UTC))
+				_, err := s.GetEventsForWeek(context.Background(), time.Date(2300, 01, 29, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
 			testFunc: func(s *sqlstorage.Storage) error {
-				_, err := s.GetEventsForMonth(time.Date(2300, 1, 1, 0, 0, 0, 0, time.UTC))
+				_, err := s.GetEventsForMonth(context.Background(), time.Date(2300, 1, 1, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: nil,
 		},
 		{
 			testFunc: func(s *sqlstorage.Storage) error {
-				_, err := s.GetEventsForWeek(time.Date(2300, 01, 02, 0, 0, 0, 0, time.UTC))
+				_, err := s.GetEventsForWeek(context.Background(), time.Date(2300, 01, 02, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: storage.ErrIncorrectStartDate,
 		},
 		{
 			testFunc: func(s *sqlstorage.Storage) error {
-				_, err := s.GetEventsForMonth(time.Date(2300, 01, 02, 0, 0, 0, 0, time.UTC))
+				_, err := s.GetEventsForMonth(context.Background(), time.Date(2300, 01, 02, 0, 0, 0, 0, time.UTC))
 				return err
 			},
 			expectedErr: storage.ErrIncorrectStartDate,

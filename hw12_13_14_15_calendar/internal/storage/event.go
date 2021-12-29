@@ -5,11 +5,11 @@ import (
 )
 
 type Event struct {
-	ID           string
-	Title        string
-	StartTime    time.Time
-	EndTime      time.Time
-	Description  string
-	OwnerID      string
-	NotifyBefore time.Duration
+	ID           string        `json:"id"`
+	Title        string        `json:"title"`
+	StartTime    time.Time     `json:"startTime"`
+	EndTime      time.Time     `json:"endTime"`
+	Description  string        `json:"description"`
+	OwnerID      string        `json:"ownerId"`
+	NotifyBefore time.Duration `json:"notifyBefore"`
 }

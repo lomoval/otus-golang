@@ -16,10 +16,10 @@ var (
 type Storage interface {
 	Connect(ctx context.Context) error
 	Close(ctx context.Context) error
-	AddEvent(e *Event) error
-	UpdateEvent(id string, e Event) error
-	RemoveEvent(id string) error
-	GetEventsForDay(date time.Time) ([]Event, error)
-	GetEventsForWeek(startDate time.Time) ([]Event, error)
-	GetEventsForMonth(startDate time.Time) ([]Event, error)
+	AddEvent(ctx context.Context, e *Event) error
+	UpdateEvent(ctx context.Context, id string, e Event) error
+	RemoveEvent(ctx context.Context, id string) error
+	GetEventsForDay(ctx context.Context, date time.Time) ([]Event, error)
+	GetEventsForWeek(ctx context.Context, startDate time.Time) ([]Event, error)
+	GetEventsForMonth(ctx context.Context, startDate time.Time) ([]Event, error)
 }

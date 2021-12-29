@@ -7,6 +7,10 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/app"
+	log "github.com/sirupsen/logrus"
 )
 
 type Config struct {
@@ -14,24 +18,29 @@ type Config struct {
 	Port int
 }
 
-type Server struct { // TODO
-	srv *http.Server
+type Server struct {
+	srv  *http.Server
+	addr string
 }
 
-type Application interface { // TODO
+func NewServer(config Config, app *app.App) *Server {
+	return &Server{
+		addr: net.JoinHostPort(config.Host, strconv.Itoa(config.Port)),
+		srv:  &http.Server{Addr: net.JoinHostPort(config.Host, strconv.Itoa(config.Port))},
+	}
 }
 
-func NewServer(config Config, app Application) *Server {
-	return &Server{srv: &http.Server{Addr: net.JoinHostPort(config.Host, strconv.Itoa(config.Port))}}
-}
+func (s *Server) Start(_ context.Context, mux *runtime.ServeMux) error {
+	if mux == nil {
+		mux = runtime.NewServeMux()
+	}
 
-func (s *Server) Start(ctx context.Context) error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandlePath("GET", "/hello", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
 		w.Write([]byte("HELLO !!!"))
 	})
 	s.srv.Handler = loggingMiddleware(mux)
 
+	log.Printf("starting http server on %s", s.addr)
 	err := s.srv.ListenAndServe()
 	if !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("http server failed: %w", err)

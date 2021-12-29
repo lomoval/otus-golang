@@ -3,6 +3,7 @@ module github.com/lomoval/otus-golang/hw12_13_14_15_calendar
 go 1.16
 
 require (
+	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.2
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/lib/pq v1.10.4
