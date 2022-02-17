@@ -1,9 +1,8 @@
-httpServer:
+rabbit:
   host: 127.0.0.1
-  port: 8005
-grpcServer:
-  host: 127.0.0.1
-  port: 8007
+  port: 5672
+  user: user
+  password: pass
 
 logger:
   level: "DEBUG"

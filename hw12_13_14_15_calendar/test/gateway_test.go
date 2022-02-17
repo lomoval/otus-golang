@@ -87,23 +87,7 @@ func TestMain(m *testing.M) {
 // Wrapper to have own marshalling for duration type.
 type testEvent struct {
 	storage.Event
-	NotifyBefore Duration `json:"notifyBefore"`
-}
-
-type Duration struct {
-	time.Duration
-}
-
-func (tt Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(fmt.Sprintf("%fs", tt.Seconds()))
-}
-
-func (tt *Duration) UnmarshalJSON(data []byte) error {
-	var err error
-	if len(data) > 1 { // Need to remove quotes: "4343s"
-		tt.Duration, err = time.ParseDuration(string(data[1 : len(data)-1]))
-	}
-	return err
+	NotifyBefore int32 `json:"notifyBefore"`
 }
 
 // For marshaling/unmarshalling JSON.
@@ -155,7 +139,7 @@ func TestStorage(t *testing.T) {
 		expected.ID = expected.Event.ID
 		expected.Event.Title += "UPD"
 		expected.Event.Description += "UPD"
-		expected.Event.NotifyBefore.Duration += +5 * time.Second
+		expected.Event.NotifyBefore += 5
 		expected.Event.StartTime = expected.Event.StartTime.Add(1 * time.Minute)
 		expected.Event.EndTime = expected.Event.EndTime.Add(1 * time.Minute)
 
@@ -483,7 +467,7 @@ func createEvent() testEvent {
 			Description: "TestDescription",
 			OwnerID:     "OwnId",
 		},
-		NotifyBefore: Duration{Duration: 120 * time.Minute},
+		NotifyBefore: 1,
 	}
 }
 

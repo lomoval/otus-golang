@@ -163,6 +163,31 @@ func (s *Storage) GetEventsForMonth(ctx context.Context, startDate time.Time) ([
 	return s.selectByRange(ctx, startTime, endTime)
 }
 
+func (s *Storage) GetEventsByNotifier(
+	ctx context.Context,
+	startTime time.Time,
+	endTime time.Time,
+) ([]storage.Event, error) {
+	var events []storage.Event
+	err := s.db.SelectContext(
+		ctx,
+		&events,
+		"SELECT id, title, start_timestamp AS startTime, end_timestamp AS endTime, description, "+
+			"notify_before AS notifyBefore, owner_id AS ownerId "+
+			"FROM Events WHERE notify_before > 0 AND (start_timestamp - (interval '1' day * notify_before))>=$1 "+
+			"AND (start_timestamp - (interval '1' day * notify_before))<=$2",
+		startTime,
+		endTime,
+	)
+
+	return events, err
+}
+
+func (s *Storage) RemoveAfter(ctx context.Context, time time.Time) error {
+	_, err := s.db.Exec("DELETE FROM Events WHERE start_timestamp < $1", time)
+	return err
+}
+
 // Select in range [startTime:endTime).
 func (s *Storage) selectByRange(ctx context.Context, startTime time.Time, endTime time.Time) ([]storage.Event, error) {
 	var events []storage.Event
