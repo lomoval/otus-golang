@@ -22,4 +22,6 @@ type Storage interface {
 	GetEventsForDay(ctx context.Context, date time.Time) ([]Event, error)
 	GetEventsForWeek(ctx context.Context, startDate time.Time) ([]Event, error)
 	GetEventsForMonth(ctx context.Context, startDate time.Time) ([]Event, error)
+	GetEventsByNotifier(ctx context.Context, startTime time.Time, endTime time.Time) ([]Event, error)
+	RemoveAfter(ctx context.Context, time time.Time) error
 }

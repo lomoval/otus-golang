@@ -104,6 +104,34 @@ func (s *Storage) GetEventsForMonth(_ context.Context, startDate time.Time) ([]s
 	return s.selectByRange(startTime, endTime)
 }
 
+func (s *Storage) GetEventsByNotifier(
+	ctx context.Context,
+	startTime time.Time,
+	endTime time.Time,
+) ([]storage.Event, error) {
+	events := make([]storage.Event, 0)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, event := range s.data {
+		notifyTime := event.StartTime.Add(time.Hour * time.Duration(event.NotifyBefore))
+		if event.NotifyBefore > 0 && notifyTime.After(startTime) && notifyTime.Before(endTime) {
+			events = append(events, event)
+		}
+	}
+	return events, nil
+}
+
+func (s *Storage) RemoveAfter(ctx context.Context, time time.Time) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for k, event := range s.data {
+		if event.StartTime.After(time) {
+			delete(s.data, k)
+		}
+	}
+	return nil
+}
+
 // Select in range [startTime:endTime).
 func (s *Storage) selectByRange(startTime time.Time, endTime time.Time) ([]storage.Event, error) {
 	events := make([]storage.Event, 0)
