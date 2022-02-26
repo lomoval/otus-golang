@@ -1,0 +1,21 @@
+version: '2'
+services:
+  integration_tests:
+    image: integration-test:develop
+    container_name: 'integration-tests-otus'
+    environment:
+      TEST_HTTP_SERVER_HOST: calendar
+      TEST_HTTP_SERVER_PORT: 10080
+      TEST_GRPC_SERVER_HOST: calendar
+      TEST_GRPC_SERVER_PORT: 10081
+      TEST_POSTGRES_HOST: postgres
+      TEST_POSTGRES_PORT: 5432
+      TEST_POSTGRES_DB: postgres
+      TEST_POSTGRES_USERNAME: postgres
+      TEST_POSTGRES_PASSWORD: postgres
+
+      WAIT_HOSTS: calendar:10080
+      WAIT_SLEEP_INTERVAL: 1
+    depends_on:
+      - calendar
+      - migrations

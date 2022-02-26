@@ -1,0 +1,99 @@
+version: '2'
+services:
+  postgres:
+    image: postgres:13.1-alpine
+    hostname: 'postgres'
+    container_name: 'postgres-otus'
+    environment:
+      POSTGRES_DB: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+#    volumes:
+#      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
+#    network_mode: "host"
+
+  migrations:
+    image: migrations:develop
+    container_name: 'migrations-otus'
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: postgres
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+
+      WAIT_HOSTS: postgres:5432
+      WAIT_SLEEP_INTERVAL: 1
+    depends_on:
+      - "postgres"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq-otus'
+    hostname: 'rabbitmq'
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: pass
+    ports:
+        - 15672:5672
+        - 16672:15672
+
+  calendar:
+    image: calendar:develop
+    hostname: 'calendar'
+    container_name: 'calendar-otus'
+    environment:
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 10080
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 10081
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: postgres
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+
+      WAIT_HOSTS: postgres:5432
+      WAIT_SLEEP_INTERVAL: 1
+    ports:
+      - 10080:10080
+      - 10081:10081
+    depends_on:
+      - "postgres"
+
+  scheduler:
+    image: scheduler:develop
+    container_name: 'scheduler-otus'
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: postgres
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: user
+      RABBITMQ_PASSWORD: pass
+
+      WAIT_HOSTS: postgres:5432, rabbitmq:5672
+      WAIT_SLEEP_INTERVAL: 2
+    depends_on:
+      - "postgres"
+      - "rabbitmq"
+
+  sender:
+    image: sender:develop
+    container_name: 'sender-otus'
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: user
+      RABBITMQ_PASSWORD: pass
+
+      WAIT_HOSTS: rabbitmq:5672
+      WAIT_SLEEP_INTERVAL: 2
+    depends_on:
+      - "rabbitmq"
