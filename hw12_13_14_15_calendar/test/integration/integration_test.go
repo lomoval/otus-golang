@@ -1,6 +1,6 @@
-// +build !integration_test
+// +build integration_test
 
-package test
+package integration
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -18,37 +17,39 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/api"
-	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/app"
+	_ "github.com/lib/pq"
 	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/logger"
-	internalgrpc "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/server/grpc"
-	internalhttp "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/server/http"
 	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage"
-	sqlstorage "github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storage/sql"
-	"github.com/lomoval/otus-golang/hw12_13_14_15_calendar/internal/storagebuilder"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
 	httpServerHost = "127.0.0.1"
-	httpServerPort = 9005
+	httpServerPort = 10080
 	grpcServerHost = "127.0.0.1"
-	grpcServerPort = 9006
+	grpcServerPort = 10081
 	pgHost         = "127.0.0.1"
 	pgPort         = 5432
-	pgDatabase     = "testing"
+	pgDatabase     = "postgres"
 	pgUsername     = "postgres"
-	pgPassword     = "pas"
-	storageType    = "memory"
+	pgPassword     = "postgres"
+	storageType    = "sql"
 	grpcGatewayURL = ""
 	httpServerURL  = ""
 )
 
 func TestMain(m *testing.M) {
 	logger.PrepareLogger(logger.Config{Level: "ERROR"})
+
+	host := os.Getenv("TEST_HTTP_SERVER_HOST")
+	if host != "" {
+		httpServerHost = host
+	}
+	host = os.Getenv("TEST_GRPC_SERVER_HOST")
+	if host != "" {
+		grpcServerHost = host
+	}
 
 	port := os.Getenv("TEST_HTTP_SERVER_PORT")
 	if port != "" {
@@ -59,7 +60,7 @@ func TestMain(m *testing.M) {
 		grpcServerPort, _ = strconv.Atoi(port)
 	}
 
-	host := os.Getenv("TEST_POSTGRES_HOST")
+	host = os.Getenv("TEST_POSTGRES_HOST")
 	if host != "" {
 		pgHost = host
 	}
@@ -71,6 +72,19 @@ func TestMain(m *testing.M) {
 			log.Printf("failed to parse port '%s': %v", port, err)
 			os.Exit(-1)
 		}
+	}
+
+	opt := os.Getenv("TEST_POSTGRES_DB")
+	if opt != "" {
+		pgDatabase = opt
+	}
+	opt = os.Getenv("TEST_POSTGRES_USERNAME")
+	if host != "" {
+		pgUsername = opt
+	}
+	opt = os.Getenv("TEST_POSTGRES_PASSWORD")
+	if host != "" {
+		pgPassword = opt
 	}
 
 	storage := os.Getenv("TEST_STORAGE_TYPE")
@@ -101,8 +115,7 @@ type apiStruct struct {
 
 func TestStorage(t *testing.T) {
 	t.Run("add event", func(t *testing.T) {
-		startServer(t)
-
+		require.NoError(t, cleanupDB())
 		event := createEvent()
 		jsonStr, err := json.Marshal(apiStruct{Event: event})
 		require.NoError(t, err)
@@ -123,8 +136,7 @@ func TestStorage(t *testing.T) {
 	})
 
 	t.Run("update get event", func(t *testing.T) {
-		startServer(t)
-
+		require.NoError(t, cleanupDB())
 		event := createEvent()
 		jsonStr, err := json.Marshal(apiStruct{Event: event})
 		require.NoError(t, err)
@@ -173,8 +185,7 @@ func TestStorage(t *testing.T) {
 	})
 
 	t.Run("remove event", func(t *testing.T) {
-		startServer(t)
-
+		require.NoError(t, cleanupDB())
 		event := createEvent()
 		jsonStr, err := json.Marshal(apiStruct{Event: event})
 		require.NoError(t, err)
@@ -215,8 +226,7 @@ func TestStorage(t *testing.T) {
 }
 
 func TestGatewayGetEvents(t *testing.T) {
-	startServer(t)
-
+	require.NoError(t, cleanupDB())
 	initDate := time.Date(2300, 0o1, 0o1, 0, 0, 0, 0, time.UTC)
 	event := createEvent()
 	event.StartTime = initDate
@@ -338,8 +348,6 @@ func TestGatewayGetEvents(t *testing.T) {
 }
 
 func TestGatewayErrors(t *testing.T) {
-	startServer(t)
-
 	t.Run("add no empty event", func(t *testing.T) {
 		resp := sendRequest(t, "POST", grpcGatewayURL, "AddEvent", []byte(`{"event": {}}`))
 		defer resp.Body.Close()
@@ -386,77 +394,6 @@ func sendRequest(t *testing.T, method string, url string, path string, requestBo
 		require.NoError(t, err, "failed send request")
 	}
 	return resp
-}
-
-func startServer(t *testing.T) {
-	t.Helper()
-
-	storage, err := storagebuilder.NewStorage(storagebuilder.Config{
-		StorageType: storageType,
-		Database: sqlstorage.Config{
-			Host:     pgHost,
-			Port:     pgPort,
-			Database: pgDatabase,
-			Username: pgUsername,
-			Password: pgPassword,
-		},
-	})
-	require.NoError(t, err, "failed to create storage")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	require.NoError(t, storage.Connect(ctx))
-
-	calendar := app.New(storage)
-	httpServer := internalhttp.NewServer(internalhttp.Config{
-		Host: httpServerHost,
-		Port: httpServerPort,
-	}, calendar)
-	grpcServer := internalgrpc.NewServer(internalgrpc.Config{
-		Host: grpcServerHost,
-		Port: grpcServerPort,
-	}, calendar)
-
-	ctx, cancel = context.WithCancel(context.Background())
-	go func() {
-		grpcServer.Start(ctx)
-	}()
-
-	// Wait stating of servers
-	require.Eventually(t, func() bool {
-		conn, err := grpc.Dial(
-			net.JoinHostPort(grpcServerHost, strconv.Itoa(grpcServerPort)),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		require.NoError(t, err, "failed to dial to grpc server")
-		client := api.NewEventsClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-		defer cancel()
-		_, err = client.GetEventsForDay(ctx, &api.GetEventsRequest{StartDate: timestamppb.Now()})
-		return err == nil
-	}, 5*time.Second, 200*time.Millisecond)
-
-	gatewayMux, err := grpcServer.GatewayMux(ctx)
-	if err != nil {
-		require.NoError(t, err, "failed to get gateway mux")
-	}
-
-	go func() {
-		httpServer.Start(ctx, gatewayMux)
-	}()
-
-	require.Eventually(t, func() bool {
-		resp := sendRequest(t, "GET", httpServerURL, "hello", nil)
-		defer resp.Body.Close()
-		return resp.StatusCode == 200
-	}, 5*time.Second, 200*time.Millisecond)
-
-	t.Cleanup(func() {
-		cancel()
-		grpcServer.Stop(ctx)
-		httpServer.Stop(ctx)
-		storage.Close(ctx)
-		require.NoError(t, cleanupDB())
-	})
 }
 
 func createEvent() testEvent {

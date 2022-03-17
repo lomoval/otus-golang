@@ -1,15 +1,14 @@
-httpServer:
-  host: $env:HTTP_HOST
-  port: $env:HTTP_PORT
-grpcServer:
-  host: $env:GRPC_HOST
-  port: $env:GRPC_PORT
+rabbit:
+  host: $env:RABBITMQ_HOST
+  port: $env:RABBITMQ_PORT
+  user: $env:RABBITMQ_USER
+  password: $env:RABBITMQ_PASSWORD
 
 logger:
   level: "ERROR"
 
 storage:
-  #  storageType: memory
+#  storageType: memory
   storageType: sql
   database:
     host: $env:POSTGRES_HOST
